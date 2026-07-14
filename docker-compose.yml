@@ -1,0 +1,56 @@
+
+services:
+  postgres:
+    image: postgres:15-alpine        # change: alpine saves ~320MB
+    environment:
+      POSTGRES_DB: mlops_agent
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}   # change: read from .env, not hardcoded
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:                      # ADD: without this nothing waits for postgres to be ready
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  orchestrator:
+    build: .
+    command: tail -f /dev/null
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/mlops_agent
+      AUTO_APPROVE: "1"
+      GROQ_API_KEY: ${GROQ_API_KEY}             # ADD: pass API key in
+      GROQ_MODEL: ${GROQ_MODEL}
+      FRAUD_API_BASE_URL: http://fraud_api:8000  # ADD: so MCP server finds fraud API
+    depends_on:
+      postgres:
+        condition: service_healthy    # change: was just "- postgres"
+
+  fraud_api:                          # ADD: stub fraud API so MCP tools have something to call
+    build: .
+    command: uvicorn fraud_detection.main:app --host 0.0.0.0 --port 8000
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/mlops_agent
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - "8000"                        # internal only, not published to host
+
+  dashboard:
+    build: .
+    command: streamlit run dashboard/app.py --server.port 8501 --server.address 0.0.0.0 --server.headless true
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/mlops_agent
+      GROQ_API_KEY: ${GROQ_API_KEY}
+    ports:
+      - '8501:8501'
+    depends_on:
+      postgres:
+        condition: service_healthy    # change: was just "- postgres"
+
+volumes:
+  postgres_data:

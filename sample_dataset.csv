@@ -1,0 +1,4 @@
+amount,merchant_country,is_fraud,transaction_hour,feature1
+100,US,0,12,0.5
+250,CA,1,08,0.7
+50,US,0,18,0.2

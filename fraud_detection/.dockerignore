@@ -1,0 +1,52 @@
+# CRITICAL: Never copy .env into a Docker image.
+# If you push the image to Docker Hub (even a private repo),
+# your API keys, database passwords, and secrets are readable
+# by anyone with access to the image layers — including future
+# you who forgot this happened. Environment variables are injected
+# at runtime via docker-compose env_file or Railway dashboard,
+# never baked into the image.
+.env
+.env.*
+!.env.example
+
+# Python bytecode — not needed in container
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Git history — not needed in container, adds size
+.git/
+.github/
+
+# Build artifacts
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Test and coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Data files — Kaggle CSVs can be hundreds of MB.
+# In production, data is mounted as a volume or pulled
+# from cloud storage at runtime, never baked into the image.
+data/raw/
+data/*.csv
+data/*.parquet
+
+# Notebooks — not needed for serving
+notebooks/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
