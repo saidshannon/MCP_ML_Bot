@@ -4,7 +4,22 @@ from pydantic import BaseModel
 from typing import Any, Dict
 import subprocess
 
-app = FastAPI()
+from contextlib import asynccontextmanager
+from pathlib import Path
+from core.db import create_schema
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Runs on startup
+    try:
+        create_schema(Path("db/schema.sql"))
+        print("Schema initialised successfully.")
+    except Exception as e:
+        print(f"Schema init warning: {e}")
+    yield
+    # Runs on shutdown (nothing needed here)
+
+app = FastAPI(lifespan=lifespan)
 
 class TrainRequest(BaseModel):
     dataset_path: str
