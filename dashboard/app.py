@@ -650,6 +650,32 @@ def main() -> None:
     st.markdown("---")
     render_agent_performance(all_agent_calls)
 
+    st.markdown('<div class="section-header">Trigger New Run</div>', unsafe_allow_html=True)
+
+    col_task, col_btn = st.columns([4, 1])
+    with col_task:
+        task_input = st.text_input(
+            "Task description",
+            placeholder="Detect fraudulent transactions with high precision"
+        )
+    with col_btn:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("▶ Run Pipeline") and task_input:
+            import requests
+            fraud_api_url = os.getenv("FRAUD_API_BASE_URL", "http://localhost:8000")
+            try:
+                resp = requests.post(
+                    f"{fraud_api_url}/trigger-run",
+                    params={
+                        "task": task_input,
+                        "dataset": "data/sample.csv"
+                    },
+                    timeout=5
+                )
+                st.success("Pipeline started. Refresh in a few seconds to see results.")
+            except Exception as e:
+                st.error(f"Could not trigger run: {e}")
+
 
 if __name__ == "__main__":
     main()

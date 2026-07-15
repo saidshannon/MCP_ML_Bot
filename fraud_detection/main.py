@@ -2,6 +2,7 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import Any, Dict
+import subprocess
 
 app = FastAPI()
 
@@ -38,3 +39,12 @@ def feature_importance(model_id: str = "default"):
             {"feature": "merchant_country", "importance": 0.21},
         ]
     }
+
+@app.post("/trigger-run")
+async def trigger_run(task: str, dataset: str = "data/sample.csv"):
+    subprocess.Popen([
+        "python", "-m", "agents.orchestrator",
+        "--task", task,
+        "--dataset", dataset
+    ])
+    return {"status": "started", "task": task}
