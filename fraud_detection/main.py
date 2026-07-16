@@ -63,11 +63,13 @@ from fastapi import BackgroundTasks
 async def trigger_run(task: str, background_tasks: BackgroundTasks, dataset: str = "data/sample.csv"):
     """Trigger an orchestrator run as a background task."""
     background_tasks.add_task(run_pipeline, task, dataset)
+    print("Pipeline started")
     return {"status": "started", "task": task}
 
 async def run_pipeline(task: str, dataset: str):
     """Actually runs the pipeline in the background."""
     try:
+        print("Inside run pipeline")
         import sys
         import os
         sys.path.insert(0, "/app")  # ensure project root is on path
