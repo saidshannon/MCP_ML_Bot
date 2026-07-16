@@ -283,22 +283,25 @@ st.markdown("""
 
 
 # ── Database helpers ───────────────────────────────────────────────────────────
+# At the top of dashboard/app.py, replace the get_connection import with:
+from sqlalchemy import create_engine, text
 
-def get_connection():
-    """Get a psycopg connection using environment DSN."""
-    import psycopg
+def get_engine():
     dsn = os.getenv("DATABASE_URL") or os.getenv("PGDSN")
     if not dsn:
-        raise ValueError("DATABASE_URL environment variable not set.")
-    return psycopg.connect(dsn)
+        raise ValueError("DATABASE_URL not set")
+    # SQLAlchemy needs postgresql:// not postgres://
+    # Render uses postgres:// which SQLAlchemy 2.0 doesn't accept
+    dsn = dsn.replace("postgres://", "postgresql://")
+    return create_engine(dsn)
 
 
 @st.cache_data(ttl=10)
 def fetch_runs() -> pd.DataFrame:
-    """Fetch all pipeline runs ordered by most recent first."""
     try:
-        with get_connection() as conn:
-            df = pd.read_sql("""
+        engine = get_engine()
+        with engine.connect() as conn:
+            df = pd.read_sql(text("""
                 SELECT
                     run_id,
                     task_description,
@@ -309,7 +312,7 @@ def fetch_runs() -> pd.DataFrame:
                 FROM runs
                 ORDER BY started_at DESC
                 LIMIT 100
-            """, conn)
+            """), conn)
         return df
     except Exception as e:
         st.error(f"Could not load runs: {e}")
@@ -317,11 +320,12 @@ def fetch_runs() -> pd.DataFrame:
 
 
 @st.cache_data(ttl=10)
-def fetch_agent_calls(run_id: Optional[int] = None) -> pd.DataFrame:
-    """Fetch agent calls, optionally filtered by run."""
+def fetch_agent_calls(run_id=None) -> pd.DataFrame:
     try:
-        with get_connection() as conn:
-            query = """
+        engine = get_engine()
+        where = f"WHERE run_id = {run_id}" if run_id else ""
+        with engine.connect() as conn:
+            df = pd.read_sql(text(f"""
                 SELECT
                     call_id,
                     run_id,
@@ -335,15 +339,11 @@ def fetch_agent_calls(run_id: Optional[int] = None) -> pd.DataFrame:
                 FROM agent_calls
                 {where}
                 ORDER BY timestamp ASC
-            """.format(
-                where=f"WHERE run_id = {run_id}" if run_id else ""
-            )
-            df = pd.read_sql(query, conn)
+            """), conn)
         return df
     except Exception as e:
         st.error(f"Could not load agent calls: {e}")
         return pd.DataFrame()
-
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
