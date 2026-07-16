@@ -55,25 +55,41 @@ def feature_importance(model_id: str = "default"):
         ]
     }
 
-# fraud_detection/main.py
 import asyncio
 from fastapi import BackgroundTasks
 
 @app.post("/trigger-run")
 async def trigger_run(task: str, background_tasks: BackgroundTasks, dataset: str = "data/sample.csv"):
-    """Trigger an orchestrator run as a background task."""
-    background_tasks.add_task(run_pipeline, task, dataset)
-    print("Pipeline started")
+    background_tasks.add_task(run_pipeline_sync, task, dataset)
+    print(f"Pipeline triggered for task: {task}")
     return {"status": "started", "task": task}
 
-async def run_pipeline(task: str, dataset: str):
-    """Actually runs the pipeline in the background."""
+def run_pipeline_sync(task: str, dataset: str):
+    """
+    Sync wrapper required because FastAPI BackgroundTasks runs functions
+    in a thread pool — async functions don't work correctly there.
+    We create a new event loop for this thread and run the async pipeline in it.
+    """
+    print(f"run_pipeline_sync called for: {task}")
     try:
-        print("Inside run pipeline")
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(_run_pipeline_async(task, dataset))
+    except Exception as e:
+        print(f"Pipeline sync wrapper failed: {e}")
+    finally:
+        loop.close()
+
+async def _run_pipeline_async(task: str, dataset: str):
+    """Actual async pipeline execution."""
+    try:
+        print(f"Starting pipeline: {task}")
         import sys
-        import os
-        sys.path.insert(0, "/app")  # ensure project root is on path
+        sys.path.insert(0, "/app")
         from agents.orchestrator import build_and_run
         await build_and_run(task_description=task, dataset_path=dataset)
+        print(f"Pipeline completed: {task}")
     except Exception as e:
-        print(f"Pipeline run failed: {e}")
+        print(f"Pipeline failed: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
