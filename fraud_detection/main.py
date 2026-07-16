@@ -55,11 +55,23 @@ def feature_importance(model_id: str = "default"):
         ]
     }
 
+# fraud_detection/main.py
+import asyncio
+from fastapi import BackgroundTasks
+
 @app.post("/trigger-run")
-async def trigger_run(task: str, dataset: str = "data/sample.csv"):
-    subprocess.Popen([
-        "python", "-m", "agents.orchestrator",
-        "--task", task,
-        "--dataset", dataset
-    ])
+async def trigger_run(task: str, background_tasks: BackgroundTasks, dataset: str = "data/sample.csv"):
+    """Trigger an orchestrator run as a background task."""
+    background_tasks.add_task(run_pipeline, task, dataset)
     return {"status": "started", "task": task}
+
+async def run_pipeline(task: str, dataset: str):
+    """Actually runs the pipeline in the background."""
+    try:
+        import sys
+        import os
+        sys.path.insert(0, "/app")  # ensure project root is on path
+        from agents.orchestrator import build_and_run
+        await build_and_run(task_description=task, dataset_path=dataset)
+    except Exception as e:
+        print(f"Pipeline run failed: {e}")
